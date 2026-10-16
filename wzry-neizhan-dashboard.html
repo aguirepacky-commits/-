@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>王者内战赛数据看板</title>
+<style>
+/* SECTION: styles-base */
+:root{
+  --bg:#0d1226; --bg2:#141b36; --card:#1a2242; --card2:#212b52;
+  --line:#2c3765; --txt:#e8ecff; --txt2:#9aa6d4; --gold:#f5c542;
+  --win:#4fc3f7; --lose:#e57373; --accent:#ff9d3c; --ok:#6fd08c;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:radial-gradient(1200px 500px at 50% -10%,#25316b 0%,var(--bg) 60%);
+  color:var(--txt);
+  font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;
+  font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased;
+}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input,select,textarea{font:inherit;color:var(--txt);background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+a{color:var(--win)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 16px 80px}
+
+/* SECTION: styles-header */
+header.top{padding:26px 0 14px;text-align:center}
+header.top h1{font-size:26px;letter-spacing:2px;font-weight:800;
+  background:linear-gradient(90deg,#f5c542,#ff9d3c 55%,#f5c542);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+header.top .sub{color:var(--txt2);font-size:13px;margin-top:4px}
+nav.tabs{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:14px 0 22px;position:sticky;top:0;z-index:20;
+  background:linear-gradient(var(--bg) 78%,transparent);padding:8px 0}
+nav.tabs button{padding:8px 18px;border-radius:999px;border:1px solid var(--line);color:var(--txt2);background:var(--card);font-size:14px}
+nav.tabs button.on{color:#101427;background:linear-gradient(90deg,var(--gold),var(--accent));border-color:transparent;font-weight:700}
+
+/* SECTION: styles-cards */
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+.card h2{font-size:16px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.card h2::before{content:"";width:4px;height:16px;border-radius:2px;background:linear-gradient(var(--gold),var(--accent))}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.kpi{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.kpi .v{font-size:24px;font-weight:800;color:var(--gold)}
+.kpi .l{font-size:12px;color:var(--txt2);margin-top:2px}
+
+/* SECTION: styles-table */
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--txt2);font-weight:600;font-size:13px;cursor:default}
+th.sortable{cursor:pointer;user-select:none}
+th.sortable:hover{color:var(--gold)}
+tbody tr:hover{background:var(--card2)}
+.num{font-variant-numeric:tabular-nums}
+.score{font-weight:800;color:var(--gold)}
+.tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;border:1px solid var(--line);color:var(--txt2)}
+.tag.win{color:var(--win);border-color:var(--win)}
+.tag.lose{color:var(--lose);border-color:var(--lose)}
+.tag.mvp{color:#101427;background:var(--gold);border-color:var(--gold);font-weight:700}
+.tag.medal{color:var(--accent);border-color:var(--accent)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:1px}
+.plink{cursor:pointer;color:var(--txt);border-bottom:1px dashed var(--txt2)}
+.plink:hover{color:var(--gold)}
+.tbl-scroll{overflow-x:auto}
+
+/* SECTION: styles-match */
+.match-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;cursor:pointer;padding:10px 12px;border-radius:10px}
+.match-head:hover{background:var(--card2)}
+.match-head .date{font-weight:700}
+.match-head .vs{color:var(--gold);font-weight:800;font-size:16px}
+.match-head .arrow{margin-left:auto;color:var(--txt2);transition:transform .2s}
+.match.open .arrow{transform:rotate(90deg)}
+.match-body{display:none;padding:4px 12px 12px}
+.match.open .match-body{display:block}
+.team-label{font-size:13px;color:var(--txt2);margin:8px 0 4px}
+
+/* SECTION: styles-forms */
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.row label{color:var(--txt2);font-size:13px}
+.btn{padding:8px 18px;border-radius:10px;background:var(--card2);border:1px solid var(--line);font-size:14px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:linear-gradient(90deg,var(--gold),var(--accent));color:#101427;font-weight:700;border-color:transparent}
+.btn.danger{color:var(--lose);border-color:var(--lose)}
+.btn.small{padding:4px 10px;font-size:13px}
+input[type=checkbox]{width:16px;height:16px;accent-color:var(--gold)}
+textarea{width:100%;min-height:110px;font-family:ui-monospace,Consolas,monospace;font-size:13px}
+.hint{color:var(--txt2);font-size:12px}
+.err{color:var(--lose);font-size:13px}
+
+/* SECTION: styles-chart */
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.legend label{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--txt2);cursor:pointer}
+svg.chart{width:100%;height:260px;display:block}
+.empty{padding:30px;text-align:center;color:var(--txt2)}
+
+/* SECTION: styles-toast-modal */
+#toast{position:fixed;left:50%;bottom:34px;transform:translateX(-50%) translateY(20px);opacity:0;
+  background:var(--card2);border:1px solid var(--gold);color:var(--txt);padding:10px 22px;border-radius:999px;
+  transition:.25s;z-index:60;pointer-events:none;font-size:14px}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#modal-mask{position:fixed;inset:0;background:rgba(5,8,20,.7);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+#modal-mask.show{display:flex}
+#modal{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;max-width:520px;width:100%;max-height:84vh;overflow:auto}
+#modal h3{margin-bottom:12px;font-size:16px}
+
+/* SECTION: styles-responsive */
+@media (max-width:760px){
+  .grid2{grid-template-columns:1fr}
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  header.top h1{font-size:21px}
+  nav.tabs button{padding:7px 13px;font-size:13px}
+  th,td{padding:7px 7px;font-size:13px}
+  .wrap{padding-bottom:60px}
+}
+</style>
+</head>
+<body>
+<!-- SECTION: shell -->
+<div class="wrap">
+  <header class="top">
+    <h1 id="site-title">王者内战赛数据看板</h1>
+    <div class="sub" id="site-sub"></div>
+  </header>
+  <nav class="tabs" id="tabs">
+    <button data-view="overview" class="on">总览</button>
+    <button data-view="matches">对局明细</button>
+    <button data-view="player">个人数据</button>
+    <button data-view="admin">录入管理</button>
+  </nav>
+
+  <!-- SECTION: view-overview -->
+  <section id="view-overview">
+    <div class="card" id="summary-card"></div>
+    <div class="card" id="latest-card"></div>
+    <div class="grid2">
+      <div class="card">
+        <h2>总排行榜</h2>
+        <div class="tbl-scroll"><table id="rank-table"></table></div>
+      </div>
+      <div class="card">
+        <h2>评分走势</h2>
+        <div class="legend" id="trend-legend"></div>
+        <div id="trend-chart"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>按天平均评分</h2>
+      <div class="tbl-scroll"><table id="daily-table"></table></div>
+    </div>
+  </section>
+
+  <!-- SECTION: view-matches -->
+  <section id="view-matches" hidden>
+    <div class="card">
+      <div class="row">
+        <label>日期</label><select id="f-date"></select>
+        <label>玩家</label><select id="f-player"></select>
+        <button class="btn small" id="f-reset">重置筛选</button>
+      </div>
+    </div>
+    <div id="match-list"></div>
+  </section>
+
+  <!-- SECTION: view-player -->
+  <section id="view-player" hidden>
+    <div class="card">
+      <div class="row"><label>选择玩家</label><select id="p-select"></select></div>
+    </div>
+    <div id="player-detail"></div>
+  </section>
+
+  <!-- SECTION: view-admin -->
+  <section id="view-admin" hidden>
+    <div class="card" id="admin-gate"></div>
+    <div id="admin-body" hidden></div>
+  </section>
+</div>
+
+<!-- SECTION: modal-toast -->
+<div id="modal-mask"><div id="modal"></div></div>
+<div id="toast"></div>
+
+<script>
+/* SECTION: heroes-data
+ * 王者荣耀英雄名单（按分路分组），用于录入时快速选择。
+ * 名单基于 2026 年 S45 赛季公开资料整理，可能滞后于游戏版本；
+ * 页面内置「自定义英雄」入口，遇到名单里没有的英雄可直接手动输入，不影响使用。
+ */
+window.WZRY_HEROES = {
+  version: 'S45 / 2026-09',
+  lanes: [
+    { key: '对抗路', label: '对抗路', heroes: ['亚瑟','项羽','廉颇','白起','程咬金','猪八戒','蒙恬','夏侯惇','吕布','芈月','马超','关羽','狂铁','老夫子','曹操','夏洛特','花木兰','影','杨戬','梦奇','达摩','孙策','橘右京','哪吒','司空震','元歌','李信','盘古','亚连','姬小满','赵怀真','刘邦','苏烈','牛魔','大司命','曹操','钟无艳','雅典娜','铠','曜','澜','镜'] },
+    { key: '打野', label: '打野', heroes: ['典韦','铠','赵云','曜','澜','镜','裴擒虎','阿古朵','刘备','宫本武藏','韩信','云缨','露娜','百里玄策','雅典娜','司马懿','云中君','暃','孙悟空','心魔六耳','兰陵王','阿轲','娜可露露','李白','元流之子(刺客)','李元芳','成吉思汗','大司命','哪吒','马超','姜子牙'] },
+    { key: '中路', label: '中路', heroes: ['妲己','安琪拉','王昭君','女娲','海月','沈梦溪','弈星','嬴政','金蝉','米莱狄','杨玉环','小乔','干将莫邪','武则天','西施','高渐离','周瑜','甄姬','嫦娥','不知火舞','少司缘','貂蝉','诸葛亮','张良','上官婉儿','姜子牙','墨子','扁鹊','司马懿','王维','元流之子(法师)','蔡文姬'] },
+    { key: '发育路', label: '发育路', heroes: ['后羿','鲁班七号','黄忠','公孙离','马可波罗','伽罗','狄仁杰','艾琳','莱西奥','蒙犽','敖隐','孙尚香','百里守约','戈娅','蚩奼','虞姬','李元芳','成吉思汗','元流之子(射手)','丹朱','鲁班大师','黄忠'] },
+    { key: '游走', label: '游走', heroes: ['蔡文姬','明世隐','孙膑','庄周','张飞','牛魔','鬼谷子','刘禅','太乙真人','钟馗','瑶','大乔','鲁班大师','盾山','苏烈','东皇太一','桑启','空空儿','赵怀真','少司缘','大禹','刘邦','姜子牙','张良','墨子','扁鹊','杨玉环','元流之子(辅助)','元流之子(坦克)','朵莉亚','海诺','亚连'] }
+  ],
+  /* 位置简称，用于图表与表格紧凑显示 */
+  laneShort: { '对抗路': '对抗', '打野': '打野', '中路': '中路', '发育路': '发育', '游走': '游走' }
+};
+
+</script>
+<script>
+/* SECTION: match-data
+ * 内战赛数据文件（唯一数据源）。
+ * 更新方式：把每天的战绩截图发给助理，由助理解析后更新本文件；
+ * 也可以在网页管理页手动录入后点「导出数据」生成新的本文件替换。
+ * 结构说明：players 为玩家名单（id 稳定不变），matches 为对局列表（按日期与时间排序）。
+ */
+window.WZRY_DATA = {
+  meta: {
+    title: '王者内战赛数据看板',
+    teamName: '微信群内战',
+    updatedAt: '2026-10-16',
+    note: '数据来源：每日内战结算截图，由助理解析录入'
+  },
+  players: [
+    { id: 'p01', name: '乐观善良娱乐', aliases: [], color: '#f5c542' },
+    { id: 'p02', name: '满目春风及你', aliases: [], color: '#4fc3f7' },
+    { id: 'p03', name: '黄翅鱼吃不吃', aliases: [], color: '#81c784' },
+    { id: 'p04', name: '十一月之雨', aliases: [], color: '#ba68c8' },
+    { id: 'p05', name: '02年迈无力', aliases: ['德布劳内', '17德布劳内'], color: '#ff8a65' },
+    { id: 'p06', name: '违规昵称914678527321', aliases: [], color: '#e57373' },
+    { id: 'p07', name: '镜的呢边是海', aliases: [], color: '#4db6ac' },
+    { id: 'p08', name: '我听妳的话', aliases: [], color: '#9575cd' },
+    { id: 'p09', name: 'hshsudnxbdi', aliases: [], color: '#a1887f' },
+    { id: 'p10', name: '沧澜潇潇', aliases: [], color: '#64b5f6' },
+    { id: 'p11', name: '云水墨言', aliases: [], color: '#f06292' },
+    { id: 'p13', name: '小鱼冲丫', aliases: [], color: '#ffb74d' },
+    { id: 'p14', name: '卧龙信长', aliases: [], color: '#4dd0e1' },
+    { id: 'p15', name: '吴彦祖sss', aliases: [], color: '#dce775' },
+    { id: 'p16', name: '哥、一枝独秀', aliases: [], color: '#ce93d8' },
+    { id: 'p17', name: '索博斯洛伊', aliases: [], color: '#80deea' },
+    { id: 'p18', name: '是你的裤裆哟', aliases: [], color: '#90a4ae' },
+    { id: 'p19', name: '橙', aliases: [], color: '#ff7043' }
+  ],
+  matches: [
+    {
+      id: 'm20261012-1', date: '2026-10-12', time: '20:40', seq: 1, score: '30 : 20', winnerTeam: 'A',
+      teams: { A: ['p04', 'p03', 'p13', 'p02', 'p16'], B: ['p01', 'p14', 'p08', 'p10', 'p06'] },
+      records: [
+        { player: 'p04', hero: '蚩', lane: '对抗路', k: 11, d: 5, a: 7, score: 11.6, gold: 13162, mvp: null, win: true, medal: '银牌对抗路' },
+        { player: 'p03', hero: '不知火舞', lane: '中路', k: 5, d: 5, a: 8, score: 9.0, gold: 12707, mvp: null, win: true, medal: '' },
+        { player: 'p13', hero: '孙权', lane: '中路', k: 5, d: 2, a: 11, score: 7.4, gold: 12308, mvp: null, win: true, medal: '' },
+        { player: 'p02', hero: '猪八戒', lane: '打野', k: 8, d: 3, a: 16, score: 11.9, gold: 14148, mvp: 'win', win: true, medal: '银牌打野' },
+        { player: 'p16', hero: '东皇太一', lane: '游走', k: 1, d: 5, a: 21, score: 8.1, gold: 9916, mvp: null, win: true, medal: '' },
+        { player: 'p01', hero: '司空震', lane: '打野', k: 5, d: 8, a: 8, score: 9.1, gold: 11936, mvp: 'lose', win: false, medal: '' },
+        { player: 'p14', hero: '嬴政', lane: '中路', k: 2, d: 3, a: 10, score: 6.7, gold: 11118, mvp: null, win: false, medal: '' },
+        { player: 'p08', hero: '狄仁杰', lane: '发育路', k: 6, d: 6, a: 8, score: 8.2, gold: 12458, mvp: null, win: false, medal: '' },
+        { player: 'p10', hero: '芈月', lane: '对抗路', k: 4, d: 8, a: 7, score: 8.1, gold: 11287, mvp: null, win: false, medal: '' },
+        { player: 'p06', hero: '廉颇', lane: '对抗路', k: 3, d: 5, a: 9, score: 7.2, gold: 10475, mvp: null, win: false, medal: '' }
+      ]
+    },
+    {
+      id: 'm20261012-2', date: '2026-10-12', time: '21:09', seq: 2, score: '14 : 3', winnerTeam: 'A',
+      teams: { A: ['p01', 'p10', 'p13', 'p04', 'p06'], B: ['p02', 'p14', 'p03', 'p16', 'p08'] },
+      records: [
+        { player: 'p01', hero: '曜', lane: '打野', k: 3, d: 0, a: 4, score: 8.9, gold: 6652, mvp: null, win: true, medal: '' },
+        { player: 'p10', hero: '项羽', lane: '对抗路', k: 4, d: 2, a: 5, score: 8.1, gold: 5469, mvp: null, win: true, medal: '' },
+        { player: 'p13', hero: '不知火舞', lane: '中路', k: 1, d: 0, a: 7, score: 8.7, gold: 5832, mvp: null, win: true, medal: '' },
+        { player: 'p04', hero: '戈娅', lane: '发育路', k: 5, d: 0, a: 5, score: 11.8, gold: 7042, mvp: 'win', win: true, medal: '银牌发育路' },
+        { player: 'p06', hero: '张飞', lane: '游走', k: 1, d: 1, a: 9, score: 7.8, gold: 4647, mvp: null, win: true, medal: '' },
+        { player: 'p02', hero: '赵云', lane: '打野', k: 1, d: 2, a: 0, score: 3.6, gold: 5194, mvp: null, win: false, medal: '' },
+        { player: 'p14', hero: '兰陵王', lane: '打野', k: 0, d: 3, a: 1, score: 3.1, gold: 3618, mvp: null, win: false, medal: '' },
+        { player: 'p03', hero: '周瑜', lane: '中路', k: 0, d: 3, a: 0, score: 3.5, gold: 4651, mvp: null, win: false, medal: '' },
+        { player: 'p16', hero: '虞姬', lane: '发育路', k: 2, d: 4, a: 0, score: 3.7, gold: 4168, mvp: null, win: false, medal: '' },
+        { player: 'p08', hero: '钟馗', lane: '游走', k: 0, d: 2, a: 1, score: 2.9, gold: 3665, mvp: null, win: false, medal: '' }
+      ]
+    },
+    {
+      id: 'm20261012-3', date: '2026-10-12', time: '21:27', seq: 3, score: '33 : 26', winnerTeam: 'A',
+      teams: { A: ['p01', 'p02', 'p04', 'p08', 'p16'], B: ['p06', 'p13', 'p03', 'p10', 'p14'] },
+      records: [
+        { player: 'p01', hero: '镜', lane: '打野', k: 12, d: 4, a: 9, score: 11.5, gold: 16706, mvp: 'win', win: true, medal: '银牌打野' },
+        { player: 'p02', hero: '夏洛特', lane: '对抗路', k: 8, d: 7, a: 11, score: 10.3, gold: 12415, mvp: null, win: true, medal: '银牌对抗路' },
+        { player: 'p04', hero: '妲己', lane: '中路', k: 5, d: 5, a: 11, score: 9.9, gold: 12330, mvp: null, win: true, medal: '铜牌中路' },
+        { player: 'p08', hero: '虞姬', lane: '发育路', k: 7, d: 5, a: 6, score: 7.2, gold: 13468, mvp: null, win: true, medal: '' },
+        { player: 'p16', hero: '蔡文姬', lane: '游走', k: 1, d: 5, a: 17, score: 6.4, gold: 10039, mvp: null, win: true, medal: '' },
+        { player: 'p06', hero: '铠', lane: '打野', k: 6, d: 5, a: 8, score: 7.9, gold: 11222, mvp: null, win: false, medal: '' },
+        { player: 'p13', hero: '关羽', lane: '对抗路', k: 7, d: 8, a: 8, score: 8.4, gold: 11961, mvp: null, win: false, medal: '' },
+        { player: 'p03', hero: '沈梦溪', lane: '中路', k: 6, d: 8, a: 8, score: 7.7, gold: 11969, mvp: null, win: false, medal: '' },
+        { player: 'p10', hero: '百里守约', lane: '发育路', k: 4, d: 7, a: 7, score: 6.6, gold: 12720, mvp: null, win: false, medal: '' },
+        { player: 'p14', hero: '东皇太一', lane: '游走', k: 3, d: 5, a: 14, score: 8.9, gold: 10881, mvp: 'lose', win: false, medal: '' }
+      ]
+    },
+    {
+      id: 'm20261013-1', date: '2026-10-13', time: '20:30', seq: 1, score: '34 : 33', winnerTeam: 'A',
+      teams: { A: ['p11', 'p06', 'p05', 'p10', 'p07'], B: ['p13', 'p14', 'p02', 'p17', 'p08'] },
+      records: [
+        { player: 'p11', hero: '孙悟空', lane: '打野', k: 7, d: 11, a: 4, score: 6.4, gold: 13727, mvp: null, win: true, medal: '' },
+        { player: 'p06', hero: '吕布', lane: '对抗路', k: 1, d: 6, a: 7, score: 6.0, gold: 12886, mvp: null, win: true, medal: '' },
+        { player: 'p05', hero: '沈梦溪', lane: '中路', k: 17, d: 2, a: 9, score: 14.5, gold: 20554, mvp: 'win', win: true, medal: '金牌中路' },
+        { player: 'p10', hero: '百里守约', lane: '发育路', k: 7, d: 9, a: 14, score: 9.0, gold: 16598, mvp: null, win: true, medal: '' },
+        { player: 'p07', hero: '鲁班大师', lane: '游走', k: 2, d: 5, a: 17, score: 6.2, gold: 12410, mvp: null, win: true, medal: '' },
+        { player: 'p13', hero: '露娜', lane: '打野', k: 2, d: 8, a: 8, score: 5.8, gold: 14868, mvp: null, win: false, medal: '' },
+        { player: 'p14', hero: '程咬金', lane: '对抗路', k: 0, d: 5, a: 14, score: 6.9, gold: 14402, mvp: null, win: false, medal: '' },
+        { player: 'p02', hero: '女娲', lane: '中路', k: 9, d: 10, a: 11, score: 7.9, gold: 15635, mvp: null, win: false, medal: '' },
+        { player: 'p17', hero: '蒙犽', lane: '发育路', k: 15, d: 5, a: 11, score: 12.0, gold: 19005, mvp: 'lose', win: false, medal: '银牌发育路' },
+        { player: 'p08', hero: '扁鹊', lane: '中路', k: 7, d: 6, a: 20, score: 8.8, gold: 13532, mvp: null, win: false, medal: '' }
+      ]
+    },
+    {
+      id: 'm20261013-2', date: '2026-10-13', time: '21:05', seq: 2, score: '14 : 6', winnerTeam: 'A',
+      teams: { A: ['p13', 'p02', 'p17', 'p05', 'p06'], B: ['p14', 'p11', 'p10', 'p08', 'p07'] },
+      records: [
+        { player: 'p13', hero: '老夫子', lane: '对抗路', k: 1, d: 3, a: 4, score: 7.2, gold: 5488, mvp: null, win: true, medal: '' },
+        { player: 'p02', hero: '干将莫邪', lane: '中路', k: 4, d: 0, a: 6, score: 10.4, gold: 7513, mvp: null, win: true, medal: '铜牌中路' },
+        { player: 'p17', hero: '苍', lane: '发育路', k: 2, d: 1, a: 5, score: 8.8, gold: 6419, mvp: null, win: true, medal: '' },
+        { player: 'p05', hero: '马超', lane: '打野', k: 7, d: 1, a: 4, score: 11.1, gold: 8060, mvp: 'win', win: true, medal: '银牌打野' },
+        { player: 'p06', hero: '张飞', lane: '游走', k: 0, d: 1, a: 6, score: 4.9, gold: 4540, mvp: null, win: true, medal: '' },
+        { player: 'p14', hero: '刘邦', lane: '对抗路', k: 0, d: 2, a: 5, score: 4.9, gold: 4592, mvp: null, win: false, medal: '' },
+        { player: 'p11', hero: '貂蝉', lane: '中路', k: 1, d: 4, a: 0, score: 4.8, gold: 4642, mvp: null, win: false, medal: '' },
+        { player: 'p10', hero: '百里守约', lane: '发育路', k: 0, d: 3, a: 2, score: 5.5, gold: 4868, mvp: null, win: false, medal: '' },
+        { player: 'p08', hero: '赵云', lane: '打野', k: 5, d: 2, a: 0, score: 6.9, gold: 4774, mvp: 'lose', win: false, medal: '' },
+        { player: 'p07', hero: '瑶', lane: '游走', k: 0, d: 3, a: 1, score: 2.3, gold: 3408, mvp: null, win: false, medal: '' }
+      ]
+    },
+    {
+      id: 'm20261014-1', date: '2026-10-14', time: '20:12', seq: 1, score: '18 : 11', winnerTeam: 'A',
+      teams: { A: ['p05', 'p15', 'p07', 'p14', 'p06'], B: ['p01', 'p13', 'p10', 'p02', 'p08'] },
+      records: [
+        { player: 'p05', hero: '杨玉环', lane: '中路', k: 5, d: 1, a: 8, score: 12.6, gold: 10704, mvp: 'win', win: true, medal: '金牌中路' },
+        { player: 'p15', hero: '白起', lane: '对抗路', k: 4, d: 4, a: 4, score: 8.8, gold: 9183, mvp: null, win: true, medal: '' },
+        { player: 'p07', hero: '孙尚香', lane: '发育路', k: 3, d: 2, a: 9, score: 8.8, gold: 8539, mvp: null, win: true, medal: '' },
+        { player: 'p14', hero: '杨戬', lane: '对抗路', k: 4, d: 2, a: 5, score: 7.6, gold: 8383, mvp: null, win: true, medal: '' },
+        { player: 'p06', hero: '墨子', lane: '中路', k: 2, d: 2, a: 11, score: 8.7, gold: 7925, mvp: null, win: true, medal: '' },
+        { player: 'p01', hero: '安琪拉', lane: '中路', k: 2, d: 4, a: 6, score: 7.9, gold: 7810, mvp: null, win: false, medal: '' },
+        { player: 'p13', hero: '狂铁', lane: '打野', k: 2, d: 3, a: 5, score: 8.6, gold: 7356, mvp: null, win: false, medal: '' },
+        { player: 'p10', hero: '百里守约', lane: '发育路', k: 0, d: 4, a: 2, score: 5.1, gold: 7437, mvp: null, win: false, medal: '' },
+        { player: 'p02', hero: '大司命', lane: '打野', k: 6, d: 5, a: 4, score: 9.8, gold: 8912, mvp: 'lose', win: false, medal: '' },
+        { player: 'p08', hero: '刘禅', lane: '游走', k: 1, d: 2, a: 8, score: 9.7, gold: 6276, mvp: null, win: false, medal: '铜牌游走' }
+      ]
+    },
+    {
+      id: 'm20261014-2', date: '2026-10-14', time: '20:35', seq: 2, score: '20 : 14', winnerTeam: 'A',
+      teams: { A: ['p01', 'p10', 'p13', 'p02', 'p07'], B: ['p08', 'p15', 'p14', 'p05', 'p06'] },
+      records: [
+        { player: 'p01', hero: '貂蝉', lane: '中路', k: 9, d: 3, a: 9, score: 14.1, gold: 11129, mvp: 'win', win: true, medal: '金牌中路' },
+        { player: 'p10', hero: '程咬金', lane: '对抗路', k: 1, d: 2, a: 1, score: 5.4, gold: 10462, mvp: null, win: true, medal: '' },
+        { player: 'p13', hero: '孙权', lane: '中路', k: 0, d: 4, a: 7, score: 4.5, gold: 8462, mvp: null, win: true, medal: '' },
+        { player: 'p02', hero: '云缨', lane: '打野', k: 8, d: 4, a: 5, score: 8.8, gold: 11711, mvp: null, win: true, medal: '' },
+        { player: 'p07', hero: '鲁班大师', lane: '游走', k: 2, d: 1, a: 12, score: 6.4, gold: 8345, mvp: null, win: true, medal: '' },
+        { player: 'p08', hero: '弈星', lane: '中路', k: 4, d: 4, a: 7, score: 8.1, gold: 9734, mvp: null, win: false, medal: '' },
+        { player: 'p15', hero: '猪八戒', lane: '打野', k: 4, d: 4, a: 2, score: 9.2, gold: 9675, mvp: 'lose', win: false, medal: '' },
+        { player: 'p14', hero: '百里守约', lane: '发育路', k: 2, d: 4, a: 4, score: 4.7, gold: 7532, mvp: null, win: false, medal: '' },
+        { player: 'p05', hero: '马超', lane: '打野', k: 4, d: 4, a: 5, score: 7.3, gold: 10788, mvp: null, win: false, medal: '' },
+        { player: 'p06', hero: '廉颇', lane: '对抗路', k: 0, d: 4, a: 10, score: 6.6, gold: 7247, mvp: null, win: false, medal: '' }
+      ]
+    },
+    {
+      id: 'm20261014-3', date: '2026-10-14', time: '20:59', seq: 3, score: '21 : 15', winnerTeam: 'A',
+      teams: { A: ['p01', 'p14', 'p13', 'p02', 'p06'], B: ['p10', 'p08', 'p15', 'p05', 'p07'] },
+      records: [
+        { player: 'p01', hero: '狂铁', lane: '对抗路', k: 3, d: 2, a: 12, score: 12.2, gold: 11361, mvp: 'win', win: true, medal: '金牌对抗路' },
+        { player: 'p14', hero: '嬴政', lane: '中路', k: 4, d: 4, a: 7, score: 5.5, gold: 12027, mvp: null, win: true, medal: '' },
+        { player: 'p13', hero: '敖隐', lane: '发育路', k: 9, d: 1, a: 6, score: 11.9, gold: 13587, mvp: null, win: true, medal: '银牌发育路' },
+        { player: 'p02', hero: '哪吒', lane: '对抗路', k: 4, d: 5, a: 12, score: 7.5, gold: 11837, mvp: null, win: true, medal: '' },
+        { player: 'p06', hero: '墨子', lane: '中路', k: 1, d: 3, a: 13, score: 7.4, gold: 10089, mvp: null, win: true, medal: '' },
+        { player: 'p10', hero: '钟无艳', lane: '对抗路', k: 4, d: 6, a: 4, score: 9.4, gold: 11521, mvp: null, win: false, medal: '' },
+        { player: 'p08', hero: '米莱狄', lane: '中路', k: 3, d: 3, a: 6, score: 9.7, gold: 11878, mvp: null, win: false, medal: '铜牌中路' },
+        { player: 'p15', hero: '蚩奼', lane: '对抗路', k: 1, d: 6, a: 3, score: 6.0, gold: 10425, mvp: null, win: false, medal: '' },
+        { player: 'p05', hero: '赵云', lane: '打野', k: 6, d: 3, a: 6, score: 9.9, gold: 13568, mvp: 'lose', win: false, medal: '' },
+        { player: 'p07', hero: '鲁班大师', lane: '游走', k: 1, d: 3, a: 7, score: 5.5, gold: 8877, mvp: null, win: false, medal: '' }
+      ]
+    },
+    {
+      id: 'm20261014-4', date: '2026-10-14', time: '21:28', seq: 4, score: '14 : 2', winnerTeam: 'A',
+      teams: { A: ['p15', 'p13', 'p10', 'p05', 'p07'], B: ['p01', 'p06', 'p08', 'p02', 'p14'] },
+      records: [
+        { player: 'p15', hero: '猪八戒', lane: '打野', k: 2, d: 0, a: 3, score: 8.7, gold: 5903, mvp: null, win: true, medal: '' },
+        { player: 'p13', hero: '不知火舞', lane: '中路', k: 3, d: 0, a: 8, score: 12.3, gold: 6344, mvp: 'win', win: true, medal: '金牌中路' },
+        { player: 'p10', hero: '百里守约', lane: '发育路', k: 1, d: 1, a: 1, score: 4.8, gold: 5118, mvp: null, win: true, medal: '' },
+        { player: 'p05', hero: '阿古朵', lane: '打野', k: 7, d: 0, a: 3, score: 10.7, gold: 6581, mvp: null, win: true, medal: '' },
+        { player: 'p07', hero: '鲁班大师', lane: '游走', k: 1, d: 1, a: 8, score: 6.4, gold: 4079, mvp: null, win: true, medal: '' },
+        { player: 'p01', hero: '夏洛特', lane: '对抗路', k: 0, d: 3, a: 0, score: 4.1, gold: 4973, mvp: null, win: false, medal: '' },
+        { player: 'p06', hero: '海诺', lane: '对抗路', k: 0, d: 4, a: 0, score: 2.8, gold: 3874, mvp: null, win: false, medal: '' },
+        { player: 'p08', hero: '虞姬', lane: '发育路', k: 1, d: 3, a: 1, score: 3.2, gold: 4753, mvp: null, win: false, medal: '' },
+        { player: 'p02', hero: '诸葛亮', lane: '中路', k: 1, d: 2, a: 0, score: 3.7, gold: 5046, mvp: null, win: false, medal: '' },
+        { player: 'p14', hero: '东皇太一', lane: '游走', k: 0, d: 2, a: 0, score: 2.8, gold: 2989, mvp: null, win: false, medal: '' }
+      ]
+    },
+    {
+      id: 'm20261014-5', date: '2026-10-14', time: '21:43', seq: 5, score: '30 : 13', winnerTeam: 'A',
+      teams: { A: ['p02', 'p15', 'p13', 'p08', 'p14'], B: ['p01', 'p05', 'p10', 'p06', 'p07'] },
+      records: [
+        { player: 'p02', hero: '干将莫邪', lane: '中路', k: 11, d: 2, a: 6, score: 13.0, gold: 12759, mvp: 'win', win: true, medal: '金牌中路' },
+        { player: 'p15', hero: '白起', lane: '对抗路', k: 4, d: 2, a: 4, score: 6.4, gold: 9539, mvp: null, win: true, medal: '' },
+        { player: 'p13', hero: '公孙离', lane: '发育路', k: 7, d: 4, a: 9, score: 9.4, gold: 11049, mvp: null, win: true, medal: '' },
+        { player: 'p08', hero: '娜可露露', lane: '打野', k: 6, d: 3, a: 4, score: 7.3, gold: 10176, mvp: null, win: true, medal: '' },
+        { player: 'p14', hero: '张飞', lane: '游走', k: 2, d: 2, a: 15, score: 8.1, gold: 9219, mvp: null, win: true, medal: '' },
+        { player: 'p01', hero: '不知火舞', lane: '中路', k: 2, d: 6, a: 1, score: 4.8, gold: 8512, mvp: null, win: false, medal: '' },
+        { player: 'p05', hero: '关羽', lane: '对抗路', k: 2, d: 5, a: 3, score: 6.2, gold: 9049, mvp: null, win: false, medal: '' },
+        { player: 'p10', hero: '马可波罗', lane: '发育路', k: 6, d: 8, a: 3, score: 7.9, gold: 11040, mvp: 'lose', win: false, medal: '' },
+        { player: 'p06', hero: '铠', lane: '打野', k: 3, d: 8, a: 4, score: 6.3, gold: 8653, mvp: null, win: false, medal: '' },
+        { player: 'p07', hero: '鲁班大师', lane: '游走', k: 0, d: 3, a: 9, score: 7.0, gold: 7795, mvp: null, win: false, medal: '' }
+      ]
+    },
+    {
+      id: 'm20261015-1', date: '2026-10-15', time: '20:09', seq: 1, score: '34 : 22', winnerTeam: 'A',
+      teams: { A: ['p01', 'p04', 'p03', 'p08', 'p07'], B: ['p05', 'p06', 'p02', 'p10', 'p09'] },
+      records: [
+        { player: 'p01', hero: '镜', lane: '打野', k: 5, d: 8, a: 8, score: 6.9, gold: 14452, mvp: null, win: true, medal: '' },
+        { player: 'p04', hero: '蚩奼', lane: '对抗路', k: 14, d: 3, a: 8, score: 14.2, gold: 17004, mvp: 'win', win: true, medal: '金牌对抗路' },
+        { player: 'p03', hero: '沈梦溪', lane: '中路', k: 5, d: 6, a: 19, score: 8.0, gold: 11730, mvp: null, win: true, medal: '' },
+        { player: 'p08', hero: '李元芳', lane: '发育路', k: 8, d: 3, a: 21, score: 10.8, gold: 15558, mvp: null, win: true, medal: '铜牌发育路' },
+        { player: 'p07', hero: '鲁班大师', lane: '游走', k: 2, d: 2, a: 28, score: 9.3, gold: 11403, mvp: null, win: true, medal: '' },
+        { player: 'p05', hero: '娜可露露', lane: '打野', k: 14, d: 5, a: 1, score: 10.0, gold: 14561, mvp: 'lose', win: false, medal: '' },
+        { player: 'p06', hero: '廉颇', lane: '对抗路', k: 0, d: 10, a: 4, score: 3.1, gold: 9528, mvp: null, win: false, medal: '' },
+        { player: 'p02', hero: '不知火舞', lane: '中路', k: 3, d: 3, a: 8, score: 8.3, gold: 15025, mvp: null, win: false, medal: '' },
+        { player: 'p10', hero: '鲁班七号', lane: '发育路', k: 3, d: 9, a: 8, score: 8.5, gold: 13355, mvp: null, win: false, medal: '' },
+        { player: 'p09', hero: '盾山', lane: '游走', k: 2, d: 7, a: 7, score: 6.7, gold: 9534, mvp: null, win: false, medal: '' }
+      ]
+    },
+    {
+      id: 'm20261015-2', date: '2026-10-15', time: '20:39', seq: 2, score: '15 : 7', winnerTeam: 'A',
+      teams: { A: ['p01', 'p02', 'p03', 'p04', 'p05'], B: ['p06', 'p07', 'p08', 'p09', 'p10'] },
+      records: [
+        { player: 'p01', hero: '钟馗', lane: '游走', k: 3, d: 0, a: 8, score: 10.7, gold: 5731, mvp: 'win', win: true, medal: '银牌游走' },
+        { player: 'p02', hero: '橘右京', lane: '对抗路', k: 1, d: 2, a: 6, score: 7.9, gold: 6687, mvp: null, win: true, medal: '' },
+        { player: 'p03', hero: '海月', lane: '中路', k: 1, d: 3, a: 9, score: 7.5, gold: 6015, mvp: null, win: true, medal: '' },
+        { player: 'p04', hero: '虞姬', lane: '发育路', k: 4, d: 1, a: 4, score: 9.9, gold: 7516, mvp: null, win: true, medal: '' },
+        { player: 'p05', hero: '大司命', lane: '打野', k: 6, d: 1, a: 1, score: 7.6, gold: 7595, mvp: null, win: true, medal: '' },
+        { player: 'p06', hero: '张飞', lane: '游走', k: 0, d: 3, a: 2, score: 4.5, gold: 4842, mvp: null, win: false, medal: '' },
+        { player: 'p07', hero: '苏烈', lane: '游走', k: 1, d: 3, a: 2, score: 5.3, gold: 4994, mvp: null, win: false, medal: '' },
+        { player: 'p08', hero: '扁鹊', lane: '中路', k: 3, d: 4, a: 2, score: 6.5, gold: 6796, mvp: 'lose', win: false, medal: '' },
+        { player: 'p09', hero: '敖隐', lane: '发育路', k: 1, d: 3, a: 0, score: 3.8, gold: 5782, mvp: null, win: false, medal: '' },
+        { player: 'p10', hero: '赵云', lane: '打野', k: 2, d: 2, a: 1, score: 5.6, gold: 7416, mvp: null, win: false, medal: '' }
+      ]
+    },
+    {
+      id: 'm20261015-3', date: '2026-10-15', time: '21:04', seq: 3, score: '19 : 14', winnerTeam: 'A',
+      teams: { A: ['p04', 'p09', 'p06', 'p17', 'p07'], B: ['p01', 'p10', 'p05', 'p08', 'p02'] },
+      records: [
+        { player: 'p04', hero: '心魔六耳', lane: '打野', k: 7, d: 4, a: 4, score: 8.8, gold: 11291, mvp: null, win: true, medal: '' },
+        { player: 'p09', hero: '司空震', lane: '打野', k: 0, d: 3, a: 13, score: 7.6, gold: 11600, mvp: null, win: true, medal: '' },
+        { player: 'p06', hero: '墨子', lane: '中路', k: 1, d: 5, a: 7, score: 6.5, gold: 8689, mvp: null, win: true, medal: '' },
+        { player: 'p17', hero: '艾琳', lane: '发育路', k: 9, d: 1, a: 5, score: 13.1, gold: 13785, mvp: 'win', win: true, medal: '金牌发育路' },
+        { player: 'p07', hero: '庄周', lane: '游走', k: 2, d: 1, a: 13, score: 9.5, gold: 8297, mvp: null, win: true, medal: '' },
+        { player: 'p01', hero: '杨戬', lane: '对抗路', k: 1, d: 5, a: 6, score: 5.0, gold: 8648, mvp: null, win: false, medal: '' },
+        { player: 'p10', hero: '夏侯惇', lane: '对抗路', k: 2, d: 4, a: 3, score: 6.2, gold: 8554, mvp: null, win: false, medal: '' },
+        { player: 'p05', hero: '沈梦溪', lane: '中路', k: 5, d: 3, a: 5, score: 12.1, gold: 10625, mvp: 'lose', win: false, medal: '银牌中路' },
+        { player: 'p08', hero: '狄仁杰', lane: '发育路', k: 2, d: 4, a: 1, score: 4.8, gold: 9568, mvp: null, win: false, medal: '' },
+        { player: 'p02', hero: '鲁班大师', lane: '游走', k: 4, d: 3, a: 7, score: 8.1, gold: 7913, mvp: null, win: false, medal: '' }
+      ]
+    },
+    {
+      id: 'm20261015-4', date: '2026-10-15', time: '21:27', seq: 4, score: '27 : 22', winnerTeam: 'A',
+      teams: { A: ['p17', 'p06', 'p10', 'p02', 'p07'], B: ['p01', 'p09', 'p05', 'p04', 'p08'] },
+      records: [
+        { player: 'p17', hero: '虞姬', lane: '发育路', k: 13, d: 3, a: 9, score: 13.6, gold: 19434, mvp: 'win', win: true, medal: '金牌发育路' },
+        { player: 'p06', hero: '海诺', lane: '对抗路', k: 2, d: 6, a: 2, score: 4.8, gold: 12701, mvp: null, win: true, medal: '' },
+        { player: 'p10', hero: '武则天', lane: '中路', k: 1, d: 7, a: 11, score: 5.9, gold: 12391, mvp: null, win: true, medal: '' },
+        { player: 'p02', hero: '刘备', lane: '打野', k: 8, d: 3, a: 9, score: 8.3, gold: 17613, mvp: null, win: true, medal: '' },
+        { player: 'p07', hero: '鲁班大师', lane: '游走', k: 3, d: 3, a: 12, score: 6.4, gold: 11244, mvp: null, win: true, medal: '' },
+        { player: 'p01', hero: '元流之子', lane: '打野', k: 5, d: 4, a: 9, score: 9.8, gold: 15654, mvp: null, win: false, medal: '' },
+        { player: 'p09', hero: '狂铁', lane: '对抗路', k: 3, d: 6, a: 11, score: 8.1, gold: 13562, mvp: null, win: false, medal: '' },
+        { player: 'p05', hero: '貂蝉', lane: '中路', k: 8, d: 6, a: 9, score: 10.7, gold: 15780, mvp: 'lose', win: false, medal: '银牌中路' },
+        { player: 'p04', hero: '赵云', lane: '打野', k: 2, d: 5, a: 11, score: 5.7, gold: 13507, mvp: null, win: false, medal: '' },
+        { player: 'p08', hero: '扁鹊', lane: '中路', k: 4, d: 6, a: 17, score: 8.5, gold: 12352, mvp: null, win: false, medal: '' }
+      ]
+    },
+    {
+      id: 'm20261016-1', date: '2026-10-16', time: '20:20', seq: 1, score: '18 : 12', winnerTeam: 'A',
+      teams: { A: ['p01', 'p05', 'p10', 'p02', 'p03'], B: ['p08', 'p18', 'p17', 'p06', 'p07'] },
+      records: [
+        { player: 'p01', hero: '老夫子', lane: '对抗路', k: 5, d: 2, a: 4, score: 12.2, gold: 9757, mvp: null, win: true, medal: '金牌对抗路' },
+        { player: 'p05', hero: '海月', lane: '中路', k: 5, d: 1, a: 10, score: 12.4, gold: 9320, mvp: 'win', win: true, medal: '金牌中路' },
+        { player: 'p10', hero: '鲁班七号', lane: '发育路', k: 2, d: 4, a: 7, score: 9.8, gold: 8275, mvp: null, win: true, medal: '' },
+        { player: 'p02', hero: '赵云', lane: '打野', k: 5, d: 2, a: 3, score: 8.0, gold: 9069, mvp: null, win: true, medal: '' },
+        { player: 'p03', hero: '张飞', lane: '游走', k: 1, d: 3, a: 9, score: 8.0, gold: 6863, mvp: null, win: true, medal: '' },
+        { player: 'p08', hero: '白起', lane: '对抗路', k: 1, d: 3, a: 6, score: 5.9, gold: 7252, mvp: null, win: false, medal: '' },
+        { player: 'p18', hero: '不知火舞', lane: '中路', k: 3, d: 6, a: 6, score: 8.3, gold: 6817, mvp: 'lose', win: false, medal: '' },
+        { player: 'p17', hero: '苍', lane: '发育路', k: 4, d: 3, a: 3, score: 7.9, gold: 8422, mvp: null, win: false, medal: '' },
+        { player: 'p06', hero: '铠', lane: '打野', k: 4, d: 5, a: 4, score: 6.5, gold: 7540, mvp: null, win: false, medal: '' },
+        { player: 'p07', hero: '鲁班大师', lane: '游走', k: 0, d: 1, a: 8, score: 8.1, gold: 6256, mvp: null, win: false, medal: '' }
+      ]
+    },
+    {
+      id: 'm20261016-2', date: '2026-10-16', time: '20:43', seq: 2, score: '21 : 11', winnerTeam: 'A',
+      teams: { A: ['p01', 'p18', 'p10', 'p02', 'p03'], B: ['p08', 'p06', 'p07', 'p17', 'p05'] },
+      records: [
+        { player: 'p01', hero: '赵云', lane: '打野', k: 9, d: 1, a: 6, score: 11.7, gold: 12574, mvp: null, win: true, medal: '银牌打野' },
+        { player: 'p18', hero: '关羽', lane: '对抗路', k: 3, d: 3, a: 5, score: 7.3, gold: 9385, mvp: null, win: true, medal: '' },
+        { player: 'p10', hero: '武则天', lane: '中路', k: 4, d: 4, a: 10, score: 9.7, gold: 10065, mvp: null, win: true, medal: '' },
+        { player: 'p02', hero: '百里守约', lane: '发育路', k: 5, d: 1, a: 8, score: 12.1, gold: 12192, mvp: 'win', win: true, medal: '银牌发育路' },
+        { player: 'p03', hero: '张飞', lane: '游走', k: 0, d: 2, a: 11, score: 7.1, gold: 8190, mvp: null, win: true, medal: '' },
+        { player: 'p08', hero: '百里玄策', lane: '打野', k: 1, d: 6, a: 4, score: 4.5, gold: 8784, mvp: null, win: false, medal: '' },
+        { player: 'p06', hero: '东皇太一', lane: '对抗路', k: 0, d: 4, a: 4, score: 5.6, gold: 8348, mvp: null, win: false, medal: '' },
+        { player: 'p07', hero: '王昭君', lane: '中路', k: 1, d: 5, a: 5, score: 5.9, gold: 8370, mvp: null, win: false, medal: '' },
+        { player: 'p17', hero: '艾琳', lane: '发育路', k: 8, d: 3, a: 2, score: 11.1, gold: 13199, mvp: 'lose', win: false, medal: '银牌发育路' },
+        { player: 'p05', hero: '太乙真人', lane: '游走', k: 1, d: 3, a: 8, score: 9.2, gold: 7890, mvp: null, win: false, medal: '' }
+      ]
+    },
+    {
+      id: 'm20261016-3', date: '2026-10-16', time: '21:07', seq: 3, score: '31 : 27', winnerTeam: 'B',
+      teams: { A: ['p06', 'p02', 'p03', 'p17', 'p07'], B: ['p01', 'p05', 'p08', 'p18', 'p10'] },
+      records: [
+        { player: 'p06', hero: '铠', lane: '打野', k: 7, d: 5, a: 14, score: 7.8, gold: 14261, mvp: null, win: false, medal: '' },
+        { player: 'p02', hero: '猪八戒', lane: '对抗路', k: 5, d: 6, a: 13, score: 7.9, gold: 13902, mvp: null, win: false, medal: '' },
+        { player: 'p03', hero: '高渐离', lane: '中路', k: 7, d: 5, a: 8, score: 7.4, gold: 14295, mvp: null, win: false, medal: '' },
+        { player: 'p17', hero: '黄忠', lane: '发育路', k: 8, d: 5, a: 14, score: 10.9, gold: 17276, mvp: 'lose', win: false, medal: '铜牌发育路' },
+        { player: 'p07', hero: '少司缘', lane: '游走', k: 4, d: 6, a: 22, score: 9.7, gold: 12677, mvp: null, win: false, medal: '铜牌游走' },
+        { player: 'p01', hero: '镜', lane: '打野', k: 4, d: 7, a: 15, score: 8.5, gold: 13812, mvp: null, win: true, medal: '' },
+        { player: 'p05', hero: '貂蝉', lane: '中路', k: 5, d: 3, a: 15, score: 11.1, gold: 15830, mvp: 'win', win: true, medal: '银牌对抗路' },
+        { player: 'p08', hero: '弈星', lane: '中路', k: 6, d: 3, a: 8, score: 6.7, gold: 14043, mvp: null, win: true, medal: '' },
+        { player: 'p18', hero: '公孙离', lane: '发育路', k: 8, d: 9, a: 7, score: 7.2, gold: 12993, mvp: null, win: true, medal: '' },
+        { player: 'p10', hero: '廉颇', lane: '对抗路', k: 4, d: 9, a: 6, score: 5.5, gold: 11770, mvp: null, win: true, medal: '' }
+      ]
+    },
+    {
+      id: 'm20261016-4', date: '2026-10-16', time: '21:36', seq: 4, score: '5 : 21', winnerTeam: 'B',
+      teams: { A: ['p01', 'p10', 'p07', 'p18', 'p06'], B: ['p08', 'p02', 'p17', 'p05', 'p03'] },
+      records: [
+        { player: 'p01', hero: '干将莫邪', lane: '中路', k: 0, d: 4, a: 2, score: 5.4, gold: 6168, mvp: null, win: false, medal: '' },
+        { player: 'p10', hero: '夏侯惇', lane: '对抗路', k: 0, d: 4, a: 3, score: 5.4, gold: 5702, mvp: null, win: false, medal: '' },
+        { player: 'p07', hero: '虞姬', lane: '发育路', k: 2, d: 4, a: 2, score: 5.5, gold: 7080, mvp: 'lose', win: false, medal: '' },
+        { player: 'p18', hero: '娜可露露', lane: '打野', k: 3, d: 5, a: 0, score: 4.3, gold: 6074, mvp: null, win: false, medal: '' },
+        { player: 'p06', hero: '张飞', lane: '游走', k: 0, d: 4, a: 3, score: 4.9, gold: 4834, mvp: null, win: false, medal: '' },
+        { player: 'p08', hero: '扁鹊', lane: '中路', k: 2, d: 1, a: 9, score: 7.7, gold: 6604, mvp: null, win: true, medal: '' },
+        { player: 'p02', hero: '孙策', lane: '对抗路', k: 3, d: 2, a: 14, score: 8.8, gold: 7293, mvp: null, win: true, medal: '' },
+        { player: 'p17', hero: '蒙犽', lane: '发育路', k: 5, d: 1, a: 6, score: 11.0, gold: 8867, mvp: null, win: true, medal: '铜牌发育路' },
+        { player: 'p05', hero: '马超', lane: '打野', k: 7, d: 0, a: 7, score: 11.4, gold: 9232, mvp: 'win', win: true, medal: '银牌打野' },
+        { player: 'p03', hero: '鬼谷子', lane: '游走', k: 4, d: 1, a: 11, score: 9.2, gold: 6195, mvp: null, win: true, medal: '' }
+      ]
+    },
+    {
+      id: 'm20261016-5', date: '2026-10-16', time: '21:58', seq: 5, score: '20 : 20', winnerTeam: 'A',
+      teams: { A: ['p05', 'p08', 'p02', 'p06', 'p07'], B: ['p01', 'p18', 'p17', 'p19', 'p10'] },
+      records: [
+        { player: 'p05', hero: '弈星', lane: '中路', k: 6, d: 0, a: 12, score: 11.9, gold: 13823, mvp: 'win', win: true, medal: '金牌中路' },
+        { player: 'p08', hero: '杨戬', lane: '对抗路', k: 1, d: 5, a: 11, score: 6.0, gold: 9565, mvp: null, win: true, medal: '' },
+        { player: 'p02', hero: '马可波罗', lane: '发育路', k: 4, d: 3, a: 8, score: 8.1, gold: 13013, mvp: null, win: true, medal: '' },
+        { player: 'p06', hero: '铠', lane: '打野', k: 7, d: 5, a: 9, score: 7.7, gold: 11558, mvp: null, win: true, medal: '' },
+        { player: 'p07', hero: '少司缘', lane: '游走', k: 2, d: 7, a: 11, score: 5.6, gold: 8808, mvp: null, win: true, medal: '' },
+        { player: 'p01', hero: '高渐离', lane: '中路', k: 4, d: 5, a: 7, score: 6.7, gold: 10516, mvp: null, win: false, medal: '' },
+        { player: 'p18', hero: '影', lane: '对抗路', k: 2, d: 5, a: 11, score: 6.6, gold: 11009, mvp: null, win: false, medal: '' },
+        { player: 'p17', hero: '艾琳', lane: '发育路', k: 5, d: 4, a: 7, score: 7.2, gold: 11854, mvp: null, win: false, medal: '' },
+        { player: 'p19', hero: '心魔六耳', lane: '打野', k: 6, d: 3, a: 6, score: 10.2, gold: 13098, mvp: 'lose', win: false, medal: '铜牌打野' },
+        { player: 'p10', hero: '百里守约', lane: '发育路', k: 3, d: 3, a: 2, score: 6.2, gold: 9857, mvp: null, win: false, medal: '' }
+      ]
+    },
+    {
+      id: 'm20261016-6', date: '2026-10-16', time: '22:24', seq: 6, score: '26 : 22', winnerTeam: 'B',
+      teams: { A: ['p06', 'p18', 'p02', 'p19', 'p17'], B: ['p01', 'p10', 'p05', 'p07', 'p08'] },
+      records: [
+        { player: 'p06', hero: '兰陵王', lane: '打野', k: 5, d: 4, a: 5, score: 6.2, gold: 13269, mvp: null, win: false, medal: '' },
+        { player: 'p18', hero: '哪吒', lane: '对抗路', k: 4, d: 6, a: 9, score: 5.3, gold: 10200, mvp: null, win: false, medal: '' },
+        { player: 'p02', hero: '干将莫邪', lane: '中路', k: 7, d: 2, a: 7, score: 10.4, gold: 14669, mvp: 'lose', win: false, medal: '铜牌中路' },
+        { player: 'p19', hero: '戈娅', lane: '发育路', k: 8, d: 5, a: 10, score: 10.1, gold: 13445, mvp: null, win: false, medal: '' },
+        { player: 'p17', hero: '刘禅', lane: '游走', k: 2, d: 5, a: 8, score: 7.7, gold: 9726, mvp: null, win: false, medal: '' },
+        { player: 'p01', hero: '镜', lane: '打野', k: 5, d: 5, a: 4, score: 7.9, gold: 14165, mvp: null, win: true, medal: '' },
+        { player: 'p10', hero: '芈月', lane: '对抗路', k: 4, d: 6, a: 3, score: 6.6, gold: 12728, mvp: null, win: true, medal: '' },
+        { player: 'p05', hero: '沈梦溪', lane: '中路', k: 9, d: 2, a: 4, score: 12.3, gold: 14376, mvp: 'win', win: true, medal: '银牌中路' },
+        { player: 'p07', hero: '孙尚香', lane: '发育路', k: 0, d: 8, a: 9, score: 4.2, gold: 9899, mvp: null, win: true, medal: '' },
+        { player: 'p08', hero: '墨子', lane: '游走', k: 4, d: 5, a: 7, score: 6.8, gold: 9937, mvp: null, win: true, medal: '' }
+      ]
+    },
+    {
+      id: 'm20261016-7', date: '2026-10-16', time: '22:52', seq: 7, score: '5 : 14', winnerTeam: 'A',
+      teams: { A: ['p18', 'p08', 'p02', 'p19', 'p07'], B: ['p01', 'p05', 'p10', 'p06', 'p17'] },
+      records: [
+        { player: 'p18', hero: '狂铁', lane: '对抗路', k: 3, d: 4, a: 0, score: 6.7, gold: 4569, mvp: 'win', win: true, medal: '' },
+        { player: 'p08', hero: '米莱狄', lane: '中路', k: 1, d: 2, a: 3, score: 6.0, gold: 4614, mvp: null, win: true, medal: '' },
+        { player: 'p02', hero: '敖隐', lane: '发育路', k: 0, d: 4, a: 4, score: 4.0, gold: 4346, mvp: null, win: true, medal: '' },
+        { player: 'p19', hero: '心魔六耳', lane: '打野', k: 1, d: 3, a: 2, score: 5.0, gold: 4856, mvp: null, win: true, medal: '' },
+        { player: 'p07', hero: '鲁班大师', lane: '游走', k: 0, d: 1, a: 4, score: 4.5, gold: 3685, mvp: null, win: true, medal: '' },
+        { player: 'p01', hero: '吕布', lane: '对抗路', k: 3, d: 1, a: 4, score: 8.4, gold: 6024, mvp: null, win: false, medal: '' },
+        { player: 'p05', hero: '海诺', lane: '中路', k: 1, d: 1, a: 7, score: 9.8, gold: 7079, mvp: 'lose', win: false, medal: '' },
+        { player: 'p10', hero: '百里守约', lane: '发育路', k: 5, d: 1, a: 2, score: 9.4, gold: 6518, mvp: null, win: false, medal: '' },
+        { player: 'p06', hero: '铠', lane: '打野', k: 1, d: 1, a: 1, score: 4.8, gold: 5273, mvp: null, win: false, medal: '' },
+        { player: 'p17', hero: '刘禅', lane: '游走', k: 4, d: 1, a: 3, score: 8.3, gold: 4934, mvp: null, win: false, medal: '' }
+      ]
+    }
+  ]
+};
+
+</script>
+<script>
+/* SECTION: app-core */
+(function () {
+  'use strict';
+  var LS_DATA = 'wzry-board-data';
+  var LS_PASS = 'wzry-admin-pass';
+  var SS_OK = 'wzry-admin-ok';
+  var PALETTE = ['#f5c542','#4fc3f7','#81c784','#ba68c8','#ff8a65','#e57373','#4db6ac','#9575cd','#a1887f','#64b5f6','#f06292','#aed581','#ffb74d','#4dd0e1','#dce775'];
+
+  var state = { data: null, view: 'overview', sortKey: 'avg', sortDesc: true, trendOn: {}, filterDate: '', filterPlayer: '', adminOk: false, editingMatchId: null };
+
+  /* ---------- 存储 ---------- */
+  function loadData() {
+    try {
+      var raw = localStorage.getItem(LS_DATA);
+      if (raw) { var p = JSON.parse(raw); if (p && p.players && p.matches) return p; }
+    } catch (e) {}
+    return JSON.parse(JSON.stringify(window.WZRY_DATA));
+  }
+  function hasLocalCopy() {
+    try { return !!localStorage.getItem(LS_DATA); } catch (e) { return false; }
+  }
+  function saveData() {
+    try { localStorage.setItem(LS_DATA, JSON.stringify(state.data)); } catch (e) { toast('本地保存失败：' + e.message); }
+  }
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function toast(msg) { var t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(function () { t.classList.remove('show'); }, 2600); }
+  function modal(html) { $('modal').innerHTML = html; $('modal-mask').classList.add('show'); }
+  function closeModal() { $('modal-mask').classList.remove('show'); }
+
+  /* ---------- 玩家与统计 ---------- */
+  function playerById(id) { for (var i = 0; i < state.data.players.length; i++) if (state.data.players[i].id === id) return state.data.players[i]; return null; }
+  function findPlayerByName(name) {
+    name = String(name).trim();
+    var ps = state.data.players;
+    for (var i = 0; i < ps.length; i++) {
+      if (ps[i].name === name) return ps[i];
+      if (ps[i].aliases && ps[i].aliases.indexOf(name) >= 0) return ps[i];
+    }
+    return null;
+  }
+  function addPlayer(name) {
+    var p = { id: 'p' + Date.now().toString(36) + Math.floor(Math.random() * 900 + 100), name: name, aliases: [], color: PALETTE[state.data.players.length % PALETTE.length] };
+    state.data.players.push(p); return p;
+  }
+  function stats() {
+    var map = {};
+    state.data.players.forEach(function (p) { map[p.id] = { id: p.id, games: 0, wins: 0, scores: [], mvps: 0, best: 0, heroes: {}, k: 0, d: 0, a: 0 }; });
+    state.data.matches.forEach(function (m) {
+      m.records.forEach(function (r) {
+        var s = map[r.player]; if (!s) return;
+        s.games++; if (r.win) s.wins++;
+        s.scores.push({ date: m.date, seq: m.seq, score: r.score, hero: r.hero, mvp: r.mvp, k: r.k, d: r.d, a: r.a, matchId: m.id, win: r.win });
+        if (r.mvp) s.mvps++;
+        if (r.score > s.best) s.best = r.score;
+        s.k += r.k; s.d += r.d; s.a += r.a;
+        var h = s.heroes[r.hero] || (s.heroes[r.hero] = { n: 0, sum: 0, wins: 0 });
+        h.n++; h.sum += r.score; if (r.win) h.wins++;
+      });
+    });
+    Object.keys(map).forEach(function (id) {
+      var s = map[id];
+      s.avg = s.games ? +(s.scores.reduce(function (x, y) { return x + y.score; }, 0) / s.games).toFixed(2) : 0;
+      s.winrate = s.games ? Math.round(s.wins / s.games * 100) : 0;
+    });
+    return map;
+  }
+  function dailyStats() {
+    var days = {};
+    state.data.matches.forEach(function (m) {
+      var d = days[m.date] || (days[m.date] = { date: m.date, matches: 0, scores: [], players: {}, best: null });
+      d.matches++;
+      m.records.forEach(function (r) {
+        d.scores.push(r.score); d.players[r.player] = 1;
+        if (!d.best || r.score > d.best.score) d.best = { score: r.score, player: r.player, hero: r.hero };
+      });
+    });
+    return Object.keys(days).sort().map(function (k) {
+      var d = days[k];
+      d.avg = +(d.scores.reduce(function (x, y) { return x + y; }, 0) / d.scores.length).toFixed(2);
+      d.count = Object.keys(d.players).length;
+      return d;
+    });
+  }
+  function fmtKDA(r) { return r.k + '/' + r.d + '/' + r.a; }
+  function scoreTag(v) { return v >= 11 ? 'color:#f5c542' : v >= 9 ? 'color:#81c784' : v < 5 ? 'color:#e57373' : ''; }
+
+  /* ---------- 路由 ---------- */
+  function parseHash() {
+    var h = location.hash.replace(/^#\/?/, '');
+    if (h.indexOf('player/') === 0) return { view: 'player', id: h.slice(7) };
+    if (h === 'matches') return { view: 'matches' };
+    if (h === 'admin') return { view: 'admin' };
+    return { view: 'overview' };
+  }
+  function go(view, id) { location.hash = id ? '#/player/' + id : '#/' + view; }
+  function render() {
+    var r = parseHash();
+    state.view = r.view;
+    ['overview', 'matches', 'player', 'admin'].forEach(function (v) { $('view-' + v).hidden = v !== state.view; });
+    var btns = $('tabs').querySelectorAll('button');
+    for (var i = 0; i < btns.length; i++) btns[i].classList.toggle('on', btns[i].getAttribute('data-view') === state.view);
+    if (state.view === 'overview') renderOverview();
+    else if (state.view === 'matches') renderMatches();
+    else if (state.view === 'player') renderPlayer(r.id);
+    else renderAdmin();
+    window.scrollTo(0, 0);
+  }
+
+  /* SECTION: view-overview */
+  function renderOverview() {
+    var st = stats(), days = dailyStats(), ms = state.data.matches;
+    $('site-sub').textContent = state.data.meta.teamName + ' · 共 ' + ms.length + ' 局 · 数据更新至 ' + (days.length ? days[days.length - 1].date : '—');
+    /* SECTION: summary-card */
+    var allScores = [];
+    ms.forEach(function (m) { m.records.forEach(function (r) { allScores.push(r.score); }); });
+    var totalAvg = allScores.length ? allScores.reduce(function (a, b) { return a + b; }, 0) / allScores.length : 0;
+    var dayRows = days.slice().reverse().map(function (d) {
+      return '<span class="tag" style="margin-right:6px">' + esc(d.date.slice(5)) + ' ' + d.matches + '局 <b style="color:var(--gold)">' + d.avg.toFixed(2) + '</b></span>';
+    }).join('');
+    $('summary-card').innerHTML = '<h2>总体数据</h2>' +
+      '<div class="kpis">' +
+      '<div class="kpi"><div class="v">' + totalAvg.toFixed(2) + '</div><div class="l">总平均评分（' + allScores.length + '人次）</div></div>' +
+      '<div class="kpi"><div class="v">' + ms.length + '</div><div class="l">总局数</div></div>' +
+      '<div class="kpi"><div class="v">' + days.length + '</div><div class="l">天数</div></div>' +
+      '<div class="kpi"><div class="v">' + Object.keys(st).filter(function (k) { return st[k].games > 0; }).length + '</div><div class="l">参战玩家</div></div></div>' +
+      '<div style="margin-top:10px">' + dayRows + '</div>' +
+      '<div class="hint" style="margin-top:6px">每日平均 = 当天全部对局、全部玩家评分之和 ÷ 人次；总平均 = 所有局所有玩家评分之和 ÷ 总人次。</div>';
+    var lc = $('latest-card');
+    if (!ms.length) { lc.innerHTML = '<div class="empty">还没有对局数据。把战绩截图发给助理，或在「录入管理」中手动录入。</div>'; }
+    else {
+      var m = ms[ms.length - 1];
+      var winIds = m.records.filter(function (r) { return r.win; }).map(function (r) { return r.player; });
+      var loseIds = m.records.filter(function (r) { return !r.win; }).map(function (r) { return r.player; });
+      var nameList = function (ids) { return ids.map(function (id) { var p = playerById(id); return p ? p.name : id; }).join('、'); };
+      var mvps = m.records.filter(function (r) { return r.mvp; }).map(function (r) {
+        var p = playerById(r.player);
+        return (r.mvp === 'win' ? '胜方MVP ' : '败方MVP ') + (p ? p.name : r.player) + '（' + r.hero + ' ' + r.score + '分）';
+      }).join('　');
+      lc.innerHTML = '<h2>最新战报 · ' + esc(m.date) + ' 第' + m.seq + '局</h2>' +
+        '<div class="kpis" style="margin-bottom:10px">' +
+        '<div class="kpi"><div class="v">' + esc(m.score) + '</div><div class="l">总比分</div></div>' +
+        '<div class="kpi"><div class="v" style="color:var(--win)">' + esc(m.winnerTeam || 'A') + '队</div><div class="l">胜方（' + winIds.length + '人）</div></div>' +
+        '<div class="kpi"><div class="v">' + m.records.length + '</div><div class="l">参战人数</div></div>' +
+        '<div class="kpi"><div class="v">' + (m.records.reduce(function (x, r) { return x + r.score; }, 0) / m.records.length).toFixed(1) + '</div><div class="l">场均评分</div></div></div>' +
+        '<div class="hint" style="margin-bottom:4px">胜方：' + esc(nameList(winIds)) + '</div>' +
+        '<div class="hint" style="margin-bottom:4px">负方：' + esc(nameList(loseIds)) + '</div>' +
+        (mvps ? '<div style="margin-top:6px"><span class="tag mvp">' + esc(mvps) + '</span></div>' : '');
+    }
+    renderRank(st);
+    renderTrend(st);
+    renderDaily(days, st);
+  }
+  function renderRank(st) {
+    var rows = state.data.players.map(function (p) { var s = st[p.id]; s.name = p.name; s.color = p.color; return s; })
+      .filter(function (s) { return s.games > 0; });
+    var key = state.sortKey;
+    rows.sort(function (a, b) { return state.sortDesc ? b[key] - a[key] : a[key] - b[key]; });
+    var th = function (label, k) { return '<th class="sortable" data-k="' + k + '">' + label + (state.sortKey === k ? (state.sortDesc ? ' ↓' : ' ↑') : '') + '</th>'; };
+    var html = '<thead><tr><th>#</th><th>玩家</th>' + th('场次', 'games') + th('胜率', 'winrate') + th('平均分', 'avg') + th('MVP', 'mvps') + '<th>最高分</th></tr></thead><tbody>';
+    if (!rows.length) html += '<tr><td colspan="7" class="empty">暂无数据</td></tr>';
+    rows.forEach(function (s, i) {
+      var medal = i === 0 ? 'background:linear-gradient(90deg,#f5c542,#ff9d3c);color:#101427' : i === 1 ? 'background:#b8c4d6;color:#101427' : i === 2 ? 'background:#c98d5a;color:#101427' : '';
+      html += '<tr><td><span class="tag" style="' + medal + '">' + (i + 1) + '</span></td>' +
+        '<td><span class="dot" style="background:' + s.color + '"></span><span class="plink" data-p="' + s.id + '">' + esc(s.name) + '</span></td>' +
+        '<td class="num">' + s.games + '</td><td class="num">' + s.winrate + '%</td>' +
+        '<td class="num score">' + s.avg.toFixed(2) + '</td><td class="num">' + s.mvps + '</td>' +
+        '<td class="num" style="' + scoreTag(s.best) + '">' + s.best.toFixed(1) + '</td></tr>';
+    });
+    $('rank-table').innerHTML = html + '</tbody>';
+    var ths = $('rank-table').querySelectorAll('th.sortable');
+    for (var i = 0; i < ths.length; i++) ths[i].onclick = function () {
+      var k = this.getAttribute('data-k');
+      if (state.sortKey === k) state.sortDesc = !state.sortDesc; else { state.sortKey = k; state.sortDesc = true; }
+      renderRank(stats());
+    };
+    bindPlayerLinks($('rank-table'));
+  }
+  function bindPlayerLinks(scope) {
+    var els = scope.querySelectorAll('.plink');
+    for (var i = 0; i < els.length; i++) els[i].onclick = function () { go('player', this.getAttribute('data-p')); };
+  }
+  /* SECTION: trend-chart */
+  function renderTrend(st) {
+    var days = dailyStats().map(function (d) { return d.date; });
+    var legend = $('trend-legend');
+    if (!Object.keys(state.trendOn).length) state.data.players.forEach(function (p, i) { state.trendOn[p.id] = i < 6; });
+    legend.innerHTML = state.data.players.map(function (p) {
+      return '<label><input type="checkbox" data-p="' + p.id + '"' + (state.trendOn[p.id] ? ' checked' : '') + '><span class="dot" style="background:' + p.color + '"></span>' + esc(p.name) + '</label>';
+    }).join('');
+    var cbs = legend.querySelectorAll('input');
+    for (var i = 0; i < cbs.length; i++) cbs[i].onchange = function () { state.trendOn[this.getAttribute('data-p')] = this.checked; renderTrend(stats()); };
+    var series = state.data.players.filter(function (p) { return state.trendOn[p.id]; }).map(function (p) {
+      var byDay = {};
+      st[p.id].scores.forEach(function (s) { (byDay[s.date] = byDay[s.date] || []).push(s.score); });
+      return { name: p.name, color: p.color, pts: days.map(function (d) { var a = byDay[d]; return a ? +(a.reduce(function (x, y) { return x + y; }, 0) / a.length).toFixed(2) : null; }) };
+    });
+    drawChart($('trend-chart'), days, series, '评分');
+  }
+  function drawChart(box, xs, series, yLabel) {
+    if (!xs.length) { box.innerHTML = '<div class="empty">暂无可绘制的数据</div>'; return; }
+    var W = 640, H = 250, L = 34, R = 12, T = 12, B = 30;
+    var x = function (i) { return xs.length === 1 ? (L + (W - L - R) / 2) : L + i * (W - L - R) / (xs.length - 1); };
+    var y = function (v) { return T + (16 - v) / 16 * (H - T - B); };
+    var g = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet">';
+    for (var v = 0; v <= 16; v += 4) g += '<line x1="' + L + '" y1="' + y(v) + '" x2="' + (W - R) + '" y2="' + y(v) + '" stroke="#2c3765" stroke-width="1"/><text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" fill="#9aa6d4" font-size="10" text-anchor="end">' + v + '</text>';
+    var step = Math.ceil(xs.length / 8);
+    xs.forEach(function (d, i) { if (i % step === 0 || i === xs.length - 1) g += '<text x="' + x(i) + '" y="' + (H - 8) + '" fill="#9aa6d4" font-size="10" text-anchor="middle">' + esc(d.slice(5)) + '</text>'; });
+    series.forEach(function (s) {
+      var path = '', dots = '';
+      s.pts.forEach(function (v, i) {
+        if (v == null) return;
+        path += (path ? ' L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1);
+        dots += '<circle cx="' + x(i).toFixed(1) + '" cy="' + y(v).toFixed(1) + '" r="3" fill="' + s.color + '"><title>' + esc(s.name) + ' ' + esc(xs[i]) + '：' + v + '</title></circle>';
+      });
+      if (path) g += '<path d="' + path + '" fill="none" stroke="' + s.color + '" stroke-width="2"/>' + dots;
+    });
+    g += '</svg>';
+    box.innerHTML = g;
+  }
+  function renderDaily(days, st) {
+    var html = '<thead><tr><th>日期</th><th>局数</th><th>参战人数</th><th>全场平均分</th><th>当日最佳</th></tr></thead><tbody>';
+    if (!days.length) html += '<tr><td colspan="5" class="empty">暂无数据</td></tr>';
+    days.slice().reverse().forEach(function (d) {
+      var p = d.best ? playerById(d.best.player) : null;
+      html += '<tr><td class="num">' + esc(d.date) + '</td><td class="num">' + d.matches + '</td><td class="num">' + d.count + '</td>' +
+        '<td class="num score">' + d.avg.toFixed(2) + '</td>' +
+        '<td>' + (d.best ? '<span class="dot" style="background:' + (p ? p.color : '#888') + '"></span><span class="plink" data-p="' + d.best.player + '">' + esc(p ? p.name : '?') + '</span> ' + esc(d.best.hero) + ' <b style="' + scoreTag(d.best.score) + '">' + d.best.score.toFixed(1) + '</b>' : '—') + '</td></tr>';
+    });
+    $('daily-table').innerHTML = html + '</tbody>';
+    bindPlayerLinks($('daily-table'));
+  }
+
+  /* SECTION: view-matches */
+  function renderMatches() {
+    var fd = $('f-date'), fp = $('f-player');
+    var dates = dailyStats().map(function (d) { return d.date; }).reverse();
+    fd.innerHTML = '<option value="">全部日期</option>' + dates.map(function (d) { return '<option' + (state.filterDate === d ? ' selected' : '') + '>' + d + '</option>'; }).join('');
+    fp.innerHTML = '<option value="">全部玩家</option>' + state.data.players.map(function (p) { return '<option value="' + p.id + '"' + (state.filterPlayer === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('');
+    fd.onchange = function () { state.filterDate = this.value; renderMatchList(); };
+    fp.onchange = function () { state.filterPlayer = this.value; renderMatchList(); };
+    $('f-reset').onclick = function () { state.filterDate = ''; state.filterPlayer = ''; renderMatches(); };
+    renderMatchList();
+  }
+  function renderMatchList() {
+    var ms = state.data.matches.slice().reverse().filter(function (m) {
+      if (state.filterDate && m.date !== state.filterDate) return false;
+      if (state.filterPlayer && !m.records.some(function (r) { return r.player === state.filterPlayer; })) return false;
+      return true;
+    });
+    var box = $('match-list');
+    if (!ms.length) { box.innerHTML = '<div class="card"><div class="empty">没有符合条件的对局</div></div>'; return; }
+    box.innerHTML = ms.map(function (m) {
+      var A = m.records.filter(function (r) { return r.win; }), B = m.records.filter(function (r) { return !r.win; });
+      var tbl = function (rows, label) {
+        return '<div class="team-label">' + label + '</div><div class="tbl-scroll"><table><thead><tr><th>玩家</th><th>英雄</th><th>分路</th><th>K/D/A</th><th>经济</th><th>评分</th><th>荣誉</th></tr></thead><tbody>' +
+          rows.map(function (r) {
+            var p = playerById(r.player);
+            return '<tr><td><span class="dot" style="background:' + (p ? p.color : '#888') + '"></span><span class="plink" data-p="' + r.player + '">' + esc(p ? p.name : r.player) + '</span></td>' +
+              '<td>' + esc(r.hero) + '</td><td><span class="tag">' + esc(r.lane || '—') + '</span></td><td class="num">' + fmtKDA(r) + '</td>' +
+              '<td class="num">' + (r.gold || '—') + '</td><td class="num score" style="' + scoreTag(r.score) + '">' + r.score.toFixed(1) + '</td>' +
+              '<td>' + (r.mvp === 'win' ? '<span class="tag mvp">MVP</span>' : r.mvp === 'lose' ? '<span class="tag lose">败方MVP</span>' : '') + (r.medal ? ' <span class="tag medal">' + esc(r.medal) + '</span>' : '') + '</td></tr>';
+          }).join('') + '</tbody></table></div>';
+      };
+      return '<div class="card match" data-m="' + m.id + '"><div class="match-head">' +
+        '<span class="date">' + esc(m.date) + ' 第' + m.seq + '局' + (m.time ? ' ' + esc(m.time) : '') + '</span>' +
+        '<span class="vs">' + esc(m.score) + '</span>' +
+        '<span class="tag win">胜方 ' + A.length + ' 人</span><span class="tag lose">负方 ' + B.length + ' 人</span>' +
+        '<span class="arrow">▶</span></div>' +
+        '<div class="match-body">' + tbl(A, '胜方') + tbl(B, '负方') + '</div></div>';
+    }).join('');
+    var heads = box.querySelectorAll('.match-head');
+    for (var i = 0; i < heads.length; i++) heads[i].onclick = function () { this.parentNode.classList.toggle('open'); };
+    bindPlayerLinks(box);
+  }
+
+  /* SECTION: view-player */
+  function renderPlayer(id) {
+    var sel = $('p-select');
+    sel.innerHTML = state.data.players.map(function (p) { return '<option value="' + p.id + '"' + (p.id === id ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('');
+    sel.onchange = function () { go('player', this.value); };
+    var p = playerById(id), box = $('player-detail');
+    if (!p) { box.innerHTML = '<div class="card"><div class="empty">未找到该玩家</div></div>'; return; }
+    var st = stats()[p.id];
+    var days = dailyStats().map(function (d) { return d.date; });
+    var byDay = {};
+    st.scores.forEach(function (s) { (byDay[s.date] = byDay[s.date] || []).push(s.score); });
+    var series = [{ name: p.name, color: p.color, pts: days.map(function (d) { var a = byDay[d]; return a ? +(a.reduce(function (x, y) { return x + y; }, 0) / a.length).toFixed(2) : null; }) }];
+    var heroes = Object.keys(st.heroes).map(function (h) { var o = st.heroes[h]; o.name = h; o.avg = +(o.sum / o.n).toFixed(2); return o; }).sort(function (a, b) { return b.n - a.n; }).slice(0, 5);
+    box.innerHTML =
+      '<div class="card"><h2><span class="dot" style="background:' + p.color + ';width:12px;height:12px"></span>' + esc(p.name) +
+      (p.aliases && p.aliases.length ? ' <span class="hint">（又名：' + esc(p.aliases.join('、')) + '）</span>' : '') + '</h2>' +
+      '<div class="kpis">' +
+      '<div class="kpi"><div class="v">' + st.games + '</div><div class="l">出场</div></div>' +
+      '<div class="kpi"><div class="v" style="color:var(--win)">' + st.winrate + '%</div><div class="l">胜率（' + st.wins + '胜）</div></div>' +
+      '<div class="kpi"><div class="v">' + st.avg.toFixed(2) + '</div><div class="l">平均评分</div></div>' +
+      '<div class="kpi"><div class="v" style="color:var(--accent)">' + st.mvps + '</div><div class="l">MVP 次数</div></div>' +
+      '<div class="kpi"><div class="v">' + st.best.toFixed(1) + '</div><div class="l">最高评分</div></div>' +
+      '<div class="kpi"><div class="v">' + (st.games ? ((st.k + st.a) / Math.max(st.d, 1)).toFixed(1) : '0') + '</div><div class="l">总KDA</div></div></div></div>' +
+      '<div class="grid2"><div class="card"><h2>评分走势</h2><div id="p-trend"></div></div>' +
+      '<div class="card"><h2>常用英雄</h2><div class="tbl-scroll"><table><thead><tr><th>英雄</th><th>场次</th><th>胜率</th><th>均分</th></tr></thead><tbody>' +
+      (heroes.length ? heroes.map(function (h) { return '<tr><td>' + esc(h.name) + '</td><td class="num">' + h.n + '</td><td class="num">' + Math.round(h.wins / h.n * 100) + '%</td><td class="num score">' + h.avg.toFixed(2) + '</td></tr>'; }).join('') : '<tr><td colspan="4" class="empty">暂无</td></tr>') +
+      '</tbody></table></div></div></div>' +
+      '<div class="card"><h2>全部对局</h2><div class="tbl-scroll"><table><thead><tr><th>日期</th><th>第几局</th><th>英雄</th><th>K/D/A</th><th>评分</th><th>荣誉</th><th>胜负</th></tr></thead><tbody>' +
+      st.scores.slice().reverse().map(function (s) { return '<tr><td class="num">' + esc(s.date) + '</td><td class="num">' + s.seq + '</td><td>' + esc(s.hero) + '</td><td class="num">' + s.k + '/' + s.d + '/' + s.a + '</td><td class="num score" style="' + scoreTag(s.score) + '">' + s.score.toFixed(1) + '</td><td>' + (s.mvp === 'win' ? '<span class="tag mvp">MVP</span>' : s.mvp === 'lose' ? '<span class="tag lose">败方MVP</span>' : '—') + '</td><td><span class="tag ' + (s.win ? 'win">胜' : 'lose">负') + '</span></td></tr>'; }).join('') +
+      '</tbody></table></div></div>';
+    drawChart($('p-trend'), days, series, '评分');
+  }
+  /* SECTION: view-admin */
+  function renderAdmin() {
+    var gate = $('admin-gate'), body = $('admin-body');
+    if (sessionStorage.getItem(SS_OK) === '1') state.adminOk = true;
+    if (!state.adminOk) {
+      body.hidden = true; gate.hidden = false;
+      var has = !!localStorage.getItem(LS_PASS);
+      gate.innerHTML = '<h2>录入管理</h2><p class="hint" style="margin-bottom:10px">' + (has ? '请输入管理口令后进入。口令只保存在你自己的浏览器里。' : '首次使用请设置一个管理口令（只保存在你自己的浏览器里，用于防止别人误改数据）。') + '</p>' +
+        '<div class="row"><input type="password" id="gate-pass" placeholder="管理口令" style="max-width:220px"><button class="btn primary" id="gate-btn">进入</button></div><div class="err" id="gate-err"></div>';
+      $('gate-btn').onclick = function () {
+        var v = $('gate-pass').value;
+        if (!v) { $('gate-err').textContent = '口令不能为空'; return; }
+        if (!has) { localStorage.setItem(LS_PASS, v); }
+        else if (v !== localStorage.getItem(LS_PASS)) { $('gate-err').textContent = '口令不对，请重试'; return; }
+        sessionStorage.setItem(SS_OK, '1'); state.adminOk = true; renderAdmin();
+      };
+      return;
+    }
+    gate.hidden = true; body.hidden = false;
+    renderAdminBody();
+  }
+  function heroOptions() {
+    var set = {};
+    (window.WZRY_HEROES.lanes || []).forEach(function (l) { l.heroes.forEach(function (h) { set[h] = 1; }); });
+    state.data.matches.forEach(function (m) { m.records.forEach(function (r) { set[r.hero] = 1; }); });
+    return Object.keys(set);
+  }
+  function renderAdminBody() {
+    var body = $('admin-body');
+    body.innerHTML =
+      '<div class="card"><h2>新增一局</h2>' +
+      '<div class="row"><label>日期</label><input type="date" id="m-date" value="' + new Date().toISOString().slice(0, 10) + '">' +
+      '<label>时间</label><input type="time" id="m-time">' +
+      '<label>当天第几局</label><input type="number" id="m-seq" min="1" value="1" style="width:70px"></div>' +
+      '<p class="hint">每行一名玩家。粘贴战绩文本可自动填充，格式：<code>名字 英雄 击杀/死亡/助攻 评分 [MVP|败方MVP] [胜|负]</code></p>' +
+      '<textarea id="m-paste" placeholder="例：&#10;乐观善良娱乐 钟馗 3/0/8 10.7 MVP 胜&#10;沧澜潇潇 赵云 2/2/1 5.6 负"></textarea>' +
+      '<div class="row"><button class="btn" id="m-parse">解析并填入</button><span class="hint" id="m-parse-msg"></span></div>' +
+      '<div class="tbl-scroll"><table id="m-rows"></table></div>' +
+      '<div class="row" style="margin-top:10px"><button class="btn small" id="m-addrow">+ 加一行</button>' +
+      '<button class="btn primary" id="m-save" data-primary-action="save-match">保存这一局</button>' +
+      '<button class="btn" id="m-export" data-primary-action="export">导出数据文件</button>' +
+      '<button class="btn small" id="m-restore">恢复为文件版本</button>' +
+      '<button class="btn small" id="m-logout">退出管理</button></div>' +
+      '<div class="hint" id="m-src"></div>' +
+      '<div class="err" id="m-err"></div></div>' +
+      '<div class="card"><h2>历史对局管理</h2><div id="m-list"></div></div>' +
+      '<div class="card"><h2>玩家名单</h2><div id="p-manage"></div>' +
+      '<div class="row" style="margin-top:10px"><input id="p-new" placeholder="新玩家名字" style="max-width:200px"><button class="btn small" id="p-add">添加玩家</button></div></div>' +
+      '<datalist id="hero-list">' + heroOptions().map(function (h) { return '<option value="' + esc(h) + '">'; }).join('') + '</datalist>';
+    newRowBlank();
+    $('m-addrow').onclick = newRowBlank;
+    $('m-parse').onclick = parsePaste;
+    $('m-save').onclick = saveMatch;
+    $('m-export').onclick = exportData;
+    $('m-src').textContent = hasLocalCopy() ? '当前显示：你浏览器里的本地暂存数据（含你未导出的改动）。' : '当前显示：data.js 文件中的数据。';
+    $('m-restore').onclick = function () {
+      if (!confirm('将丢弃你浏览器里的本地暂存改动，恢复为 data.js 文件中的数据。确定继续？')) return;
+      localStorage.removeItem(LS_DATA);
+      state.data = JSON.parse(JSON.stringify(window.WZRY_DATA));
+      renderAdminBody(); toast('已恢复为文件版本');
+    };
+    $('m-logout').onclick = function () { sessionStorage.removeItem(SS_OK); state.adminOk = false; renderAdmin(); };
+    $('p-add').onclick = function () {
+      var v = $('p-new').value.trim();
+      if (!v) return toast('名字不能为空');
+      if (findPlayerByName(v)) return toast('已有同名或同外号的玩家');
+      addPlayer(v); saveData(); $('p-new').value = ''; renderAdminBody(); toast('已添加 ' + v);
+    };
+    renderMatchAdminList();
+    renderPlayerManage();
+  }
+  function newRowBlank(rec) {
+    var tb = $('m-rows');
+    var head = !tb.querySelector('thead');
+    if (head) tb.innerHTML = '<thead><tr><th>玩家</th><th>英雄</th><th>分路</th><th>K/D/A</th><th>评分</th><th>经济</th><th>MVP</th><th>胜</th><th>奖牌</th><th></th></tr></thead><tbody></tbody>';
+    var tr = document.createElement('tr');
+    var pOpts = state.data.players.map(function (p) { return '<option value="' + p.id + '">' + esc(p.name) + '</option>'; }).join('');
+    var laneOpts = ['对抗路', '打野', '中路', '发育路', '游走'].map(function (l) { return '<option>' + l + '</option>'; }).join('');
+    tr.innerHTML = '<td><select class="r-p">' + pOpts + '</select></td>' +
+      '<td><input class="r-hero" list="hero-list" style="width:86px" value="' + esc(rec ? rec.hero : '') + '"></td>' +
+      '<td><select class="r-lane">' + laneOpts + '</select></td>' +
+      '<td class="num"><input class="r-k" type="number" min="0" style="width:44px" value="' + (rec ? rec.k : 0) + '">/<input class="r-d" type="number" min="0" style="width:44px" value="' + (rec ? rec.d : 0) + '">/<input class="r-a" type="number" min="0" style="width:44px" value="' + (rec ? rec.a : 0) + '"></td>' +
+      '<td><input class="r-score" type="number" step="0.1" min="0" max="16" style="width:64px" value="' + (rec ? rec.score : '') + '"></td>' +
+      '<td><input class="r-gold" type="number" min="0" style="width:74px" value="' + (rec && rec.gold ? rec.gold : '') + '"></td>' +
+      '<td><select class="r-mvp"><option value="">无</option><option value="win">胜方MVP</option><option value="lose">败方MVP</option></select></td>' +
+      '<td><input type="checkbox" class="r-win"></td>' +
+      '<td><input class="r-medal" style="width:80px" placeholder="如银牌游走" value="' + esc(rec && rec.medal ? rec.medal : '') + '"></td>' +
+      '<td><button class="btn small danger r-del">删</button></td>';
+    if (rec) {
+      tr.querySelector('.r-p').value = rec.player;
+      tr.querySelector('.r-lane').value = rec.lane || '中路';
+      tr.querySelector('.r-mvp').value = rec.mvp || '';
+      tr.querySelector('.r-win').checked = !!rec.win;
+    }
+    tr.querySelector('.r-del').onclick = function () { tr.remove(); };
+    tb.querySelector('tbody').appendChild(tr);
+  }
+  function parsePaste() {
+    var lines = $('m-paste').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+    var ok = 0, errs = [];
+    lines.forEach(function (ln, idx) {
+      var m = ln.match(/^(\S+)\s+(\S+)\s+(\d+)\s*\/\s*(\d+)\s*\/\s*(\d+)\s+(\d+(?:\.\d+)?)(.*)$/);
+      if (!m) { errs.push('第' + (idx + 1) + '行格式不对：' + ln); return; }
+      var name = m[1], hero = m[2], k = +m[3], d = +m[4], a = +m[5], sc = +m[6], rest = m[7];
+      var mvp = /败方MVP/.test(rest) ? 'lose' : /MVP/.test(rest) ? 'win' : '';
+      var win = /负/.test(rest) ? false : /胜/.test(rest) ? true : null;
+      var p = findPlayerByName(name); if (!p) p = addPlayer(name);
+      var lane = guessLane(hero);
+      newRowBlank({ player: p.id, hero: hero, lane: lane, k: k, d: d, a: a, score: sc, mvp: mvp, win: win === null ? false : win, medal: '' });
+      var tr = $('m-rows').querySelector('tbody').lastElementChild;
+      tr.querySelector('.r-win').checked = win === true;
+      ok++;
+    });
+    $('m-parse-msg').innerHTML = (ok ? '已填入 ' + ok + ' 行。' : '') + (errs.length ? '<span class="err">' + esc(errs.join('；')) + '</span>' : '');
+  }
+  function guessLane(hero) {
+    var ls = window.WZRY_HEROES.lanes || [];
+    for (var i = 0; i < ls.length; i++) if (ls[i].heroes.indexOf(hero) >= 0) return ls[i].key;
+    return '中路';
+  }
+  function saveMatch() {
+    var err = $('m-err'); err.textContent = '';
+    var rows = Array.prototype.slice.call($('m-rows').querySelectorAll('tbody tr'));
+    if (!rows.length) { err.textContent = '至少填一行玩家数据'; return; }
+    var recs = [], seen = {}, mvpWin = 0, mvpLose = 0;
+    for (var i = 0; i < rows.length; i++) {
+      var tr = rows[i], q = function (c) { return tr.querySelector(c); };
+      var pid = q('.r-p').value, hero = q('.r-hero').value.trim(), sc = parseFloat(q('.r-score').value);
+      if (!hero) { err.textContent = '第' + (i + 1) + '行缺英雄名'; return; }
+      if (isNaN(sc) || sc < 0 || sc > 16) { err.textContent = '第' + (i + 1) + '行评分需在 0–16 之间'; return; }
+      if (seen[pid]) { err.textContent = '玩家重复：' + (playerById(pid) || {}).name; return; }
+      seen[pid] = 1;
+      var mvp = q('.r-mvp').value;
+      if (mvp === 'win') mvpWin++; if (mvp === 'lose') mvpLose++;
+      recs.push({ player: pid, hero: hero, lane: q('.r-lane').value, k: +q('.r-k').value || 0, d: +q('.r-d').value || 0, a: +q('.r-a').value || 0, score: sc, gold: +q('.r-gold').value || 0, mvp: mvp || null, win: q('.r-win').checked, medal: q('.r-medal').value.trim() });
+    }
+    if (mvpWin > 1 || mvpLose > 1) { err.textContent = '胜方MVP和败方MVP各只能有一名'; return; }
+    var kA = recs.filter(function (r) { return r.win; }).reduce(function (x, r) { return x + r.k; }, 0);
+    var kB = recs.filter(function (r) { return !r.win; }).reduce(function (x, r) { return x + r.k; }, 0);
+    var date = $('m-date').value, seq = +$('m-seq').value || 1;
+    var m = { id: state.editingMatchId || ('m' + date.replace(/-/g, '') + '-' + seq + '-' + Date.now().toString(36)), date: date, time: $('m-time').value || '', seq: seq, score: kA + ' : ' + kB, winnerTeam: kA >= kB ? 'A' : 'B', records: recs };
+    if (state.editingMatchId) {
+      for (var j = 0; j < state.data.matches.length; j++) if (state.data.matches[j].id === state.editingMatchId) state.data.matches[j] = m;
+      state.editingMatchId = null; toast('已更新该局');
+    } else { state.data.matches.push(m); toast('已保存 ' + date + ' 第' + seq + '局'); }
+    saveData(); renderAdminBody();
+  }
+  function renderMatchAdminList() {
+    var box = $('m-list');
+    var ms = state.data.matches.slice().reverse();
+    if (!ms.length) { box.innerHTML = '<div class="empty">暂无对局</div>'; return; }
+    box.innerHTML = '<div class="tbl-scroll"><table><thead><tr><th>日期</th><th>第几局</th><th>比分</th><th>人数</th><th>操作</th></tr></thead><tbody>' +
+      ms.map(function (m) { return '<tr><td class="num">' + esc(m.date) + '</td><td class="num">' + m.seq + '</td><td class="num score">' + esc(m.score) + '</td><td class="num">' + m.records.length + '</td>' +
+        '<td><button class="btn small" data-edit="' + m.id + '">编辑</button> <button class="btn small danger" data-del="' + m.id + '">删除</button></td></tr>'; }).join('') + '</tbody></table></div>';
+    var bs = box.querySelectorAll('button');
+    for (var i = 0; i < bs.length; i++) bs[i].onclick = function () {
+      var id = this.getAttribute('data-edit') || this.getAttribute('data-del');
+      var m = null; state.data.matches.forEach(function (x) { if (x.id === id) m = x; });
+      if (!m) return;
+      if (this.getAttribute('data-del')) {
+        if (!confirm('确定删除 ' + m.date + ' 第' + m.seq + '局？删除后可在本地数据中找回旧导出文件。')) return;
+        state.data.matches = state.data.matches.filter(function (x) { return x.id !== id; });
+        saveData(); renderAdminBody(); toast('已删除');
+        return;
+      }
+      state.editingMatchId = id;
+      $('m-date').value = m.date; $('m-time').value = m.time || ''; $('m-seq').value = m.seq;
+      $('m-rows').innerHTML = '';
+      m.records.forEach(function (r) { newRowBlank(r); });
+      window.scrollTo(0, 0); toast('已载入该局到上方表单，改完点「保存这一局」');
+    };
+  }
+  function renderPlayerManage() {
+    var box = $('p-manage');
+    box.innerHTML = '<div class="tbl-scroll"><table><thead><tr><th>颜色</th><th>名字</th><th>外号（逗号分隔）</th><th>操作</th></tr></thead><tbody>' +
+      state.data.players.map(function (p) { return '<tr data-p="' + p.id + '"><td><input type="color" class="pm-c" value="' + p.color + '" style="width:36px;padding:2px"></td>' +
+        '<td><input class="pm-n" value="' + esc(p.name) + '" style="width:150px"></td>' +
+        '<td><input class="pm-a" value="' + esc((p.aliases || []).join(',')) + '" style="width:180px"></td>' +
+        '<td><button class="btn small pm-s">保存</button></td></tr>'; }).join('') + '</tbody></table></div>';
+    var bs = box.querySelectorAll('.pm-s');
+    for (var i = 0; i < bs.length; i++) bs[i].onclick = function () {
+      var tr = this.closest('tr'), p = playerById(tr.getAttribute('data-p'));
+      var n = tr.querySelector('.pm-n').value.trim();
+      if (!n) return toast('名字不能为空');
+      p.name = n; p.color = tr.querySelector('.pm-c').value;
+      p.aliases = tr.querySelector('.pm-a').value.split(/[,，]/).map(function (s) { return s.trim(); }).filter(Boolean);
+      saveData(); toast('已保存 ' + n);
+    };
+  }
+  /* SECTION: export */
+  function exportData() {
+    var content = '/* SECTION: match-data\n * 内战赛数据文件（唯一数据源）。\n * 由看板网页导出，替换托管仓库中的 ' + ['assets', 'data.js'].join('/') + ' 即可让群友看到最新数据。\n */\nwindow.WZRY_DATA = ' + JSON.stringify(state.data, null, 2) + ';\n';
+    var blob = new Blob([content], { type: 'text/javascript;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'data.js';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+    toast('已导出：' + state.data.matches.length + ' 局、' + state.data.players.length + ' 位玩家，文件名 data.js');
+  }
+
+  /* SECTION: init */
+  function init() {
+    state.data = loadData();
+    $('site-title').textContent = state.data.meta.title;
+    $('tabs').addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      go(b.getAttribute('data-view'));
+    });
+    $('modal-mask').addEventListener('click', function (e) { if (e.target === this) closeModal(); });
+    window.addEventListener('hashchange', render);
+    render();
+  }
+  init();
+})();
+
+</script>
+</body>
+</html>
